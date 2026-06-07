@@ -66,6 +66,11 @@ def init_session_state():
     # 功能执行状态（用于自动重置）
     if "func_executed" not in st.session_state:
         st.session_state.func_executed = False
+    # ✅ 新增：全局消息提示（用于返回主菜单后显示）
+    if "message" not in st.session_state:
+        st.session_state.message = None
+    if "message_type" not in st.session_state:
+        st.session_state.message_type = "info"  # success/error/warning/info
 
 # ==================== 用户类 ====================
 class User:
@@ -151,13 +156,15 @@ class FileManager:
                 data = json.load(f)
             return {username: User.from_dict(info) for username, info in data.items()}
         except (json.JSONDecodeError, KeyError):
-            st.markdown('<div class="status-text" style="background-color: #fff3cd;">[警告] 用户文件格式错误，将使用空数据。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[警告] 用户文件格式错误，将使用空数据。"
+            st.session_state.message_type = "warning"
             return {}
     def save_users(self, users):
         data = {username: user.to_dict() for username, user in users.items()}
         with open(self.user_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
-        st.markdown(f'<div class="status-text" style="background-color: #d4edda;">[系统] 用户数据已保存到 {self.user_file}</div>', unsafe_allow_html=True)
+        st.session_state.message = f"[系统] 用户数据已保存到 {self.user_file}"
+        st.session_state.message_type = "success"
     def load_seats(self):
         if not os.path.exists(self.seat_file):
             return []
@@ -166,13 +173,15 @@ class FileManager:
                 data = json.load(f)
             return [Seat.from_dict(info) for info in data]
         except (json.JSONDecodeError, KeyError):
-            st.markdown('<div class="status-text" style="background-color: #fff3cd;">[警告] 座位文件格式错误，将使用空数据。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[警告] 座位文件格式错误，将使用空数据。"
+            st.session_state.message_type = "warning"
             return []
     def save_seats(self, seats):
         data = [seat.to_dict() for seat in seats]
         with open(self.seat_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
-        st.markdown(f'<div class="status-text" style="background-color: #d4edda;">[系统] 座位数据已保存到 {self.seat_file}</div>', unsafe_allow_html=True)
+        st.session_state.message = f"[系统] 座位数据已保存到 {self.seat_file}"
+        st.session_state.message_type = "success"
 
 # ==================== 图书馆管理系统类 ====================
 class LibrarySystem:
@@ -186,7 +195,8 @@ class LibrarySystem:
         if not self.seats:
             self._generate_default_seats()
             self.file_manager.save_seats(self.seats)
-            st.markdown('<div class="status-text" style="background-color: #d4edda;">[系统] 已自动生成1-6楼所有默认座位（共3600个）</div>', unsafe_allow_html=True)
+            st.session_state.message = "[系统] 已自动生成1-6楼所有默认座位（共3600个）"
+            st.session_state.message_type = "success"
 
     # 1-6楼 × 每层3区 × 每区100普通+100电脑
     def _generate_default_seats(self):
@@ -229,34 +239,38 @@ class LibrarySystem:
         return True, ""
 
     def register(self, username, account, password, confirm_pwd):
-        st.markdown("<h4>用户注册</h4>", unsafe_allow_html=True)
         if not username:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 用户名不能为空！</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 用户名不能为空！"
+            st.session_state.message_type = "error"
             return False
         if username in self.users:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 该用户名已被注册，请更换一个。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 该用户名已被注册，请更换一个。"
+            st.session_state.message_type = "error"
             return False
         if not account:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 账号不能为空！</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 账号不能为空！"
+            st.session_state.message_type = "error"
             return False
         if not password:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 密码不能为空！</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 密码不能为空！"
+            st.session_state.message_type = "error"
             return False
         if password != confirm_pwd:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 两次输入的密码不一致！</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 两次输入的密码不一致！"
+            st.session_state.message_type = "error"
             return False
         self.users[username] = User(username, account, password)
         self.file_manager.save_users(self.users)
-        st.markdown(f'<div class="status-text" style="background-color: #d4edda;">[成功] 用户 {username} 注册成功！</div>', unsafe_allow_html=True)
+        st.session_state.message = f"[成功] 用户 {username} 注册成功！"
+        st.session_state.message_type = "success"
         return True
 
-    # ✅ 严格区分两种登录错误提示
+    # ✅ 登录错误提示改为全局消息，返回主菜单后显示
     def login(self, username, account, password):
-        st.markdown("<h4>用户登录</h4>", unsafe_allow_html=True)
-        
         # 第一步：先检查用户名是否存在
         if username not in self.users:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 用户名不存在，请先注册。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 用户名不存在，请先注册。"
+            st.session_state.message_type = "error"
             return False
         
         # 第二步：用户名存在，再检查账号和密码
@@ -264,27 +278,32 @@ class LibrarySystem:
         if user.account == account and user.password == password:
             self.current_user = username
             st.session_state.current_user = username
-            st.markdown(f'<div class="status-text" style="background-color: #d4edda;">[成功] 欢迎回来，{username}！</div>', unsafe_allow_html=True)
+            st.session_state.message = f"[成功] 欢迎回来，{username}！"
+            st.session_state.message_type = "success"
             # 登录成功后重置菜单选择
             st.session_state.selected_func = "请选择功能"
             return True
         else:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 账号或密码错误！</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 账号或密码错误！"
+            st.session_state.message_type = "error"
             return False
 
     def logout(self):
         if self.current_user:
-            st.markdown(f'<div class="status-text" style="background-color: #d4edda;">[系统] 用户 {self.current_user} 已登出。</div>', unsafe_allow_html=True)
+            st.session_state.message = f"[系统] 用户 {self.current_user} 已登出。"
+            st.session_state.message_type = "success"
             self.current_user = None
             st.session_state.current_user = None
         else:
-            st.markdown('<div class="status-text" style="background-color: #fff3cd;">[提示] 当前没有登录用户。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[提示] 当前没有登录用户。"
+            st.session_state.message_type = "warning"
         # 登出后重置菜单
         st.session_state.selected_func = "请选择功能"
 
     def show_user_info(self):
         if not self.current_user:
-            st.markdown('<div class="status-text" style="background-color: #fff3cd;">[提示] 请先登录。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[提示] 请先登录。"
+            st.session_state.message_type = "warning"
             return
         st.markdown("<h4>当前用户信息</h4>", unsafe_allow_html=True)
         user = self.users[self.current_user]
@@ -298,23 +317,25 @@ class LibrarySystem:
             st.write(f"**已预约座位数**: {reserved_count}")
 
     def add_seat(self, seat_id, floor, area, seat_type):
-        st.markdown("<h4>添加座位</h4>", unsafe_allow_html=True)
         valid, msg = self._validate_seat_input(seat_id, floor, area, seat_type)
         if not valid:
-            st.markdown(f'<div class="status-text" style="background-color: #f8d7da;">[错误] {msg}</div>', unsafe_allow_html=True)
+            st.session_state.message = f"[错误] {msg}"
+            st.session_state.message_type = "error"
             return
         if self._find_seat(seat_id, floor, area, seat_type):
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 该座位已存在，请勿重复添加。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 该座位已存在，请勿重复添加。"
+            st.session_state.message_type = "error"
             return
         new_seat = Seat(seat_id, floor, area, seat_type)
         self.seats.append(new_seat)
         self.file_manager.save_seats(self.seats)
-        st.markdown(f'<div class="status-text" style="background-color: #d4edda;">[成功] 座位添加成功：{new_seat}</div>', unsafe_allow_html=True)
+        st.session_state.message = f"[成功] 座位添加成功：{new_seat}"
+        st.session_state.message_type = "success"
 
     def show_seats(self):
-        st.markdown("<h4>座位列表</h4>", unsafe_allow_html=True)
         if not self.seats:
-            st.markdown('<div class="status-text" style="background-color: #fff3cd;">（暂无座位数据）</div>', unsafe_allow_html=True)
+            st.session_state.message = "（暂无座位数据）"
+            st.session_state.message_type = "warning"
             return
         sorted_seats = sorted(self.seats, key=lambda s: (s.floor, s.area, s.seat_id))
         # 用卡片展示座位信息
@@ -329,7 +350,6 @@ class LibrarySystem:
                     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
     def search_seats(self, choice, floor_in, area_in, type_in, status_in):
-        st.markdown("<h4>查询座位</h4>", unsafe_allow_html=True)
         query_tips = {
             "1": "按楼层查询",
             "2": "按区域查询",
@@ -350,15 +370,18 @@ class LibrarySystem:
             results = [s for s in self.seats if s.status == status_in]
         elif choice == "5":
             if not self.current_user:
-                st.markdown('<div class="status-text" style="background-color: #fff3cd;">[提示] 请先登录。</div>', unsafe_allow_html=True)
+                st.session_state.message = "[提示] 请先登录。"
+                st.session_state.message_type = "warning"
                 return
             results = [s for s in self.seats if s.reserved_by == self.current_user]
         else:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 无效选项。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 无效选项。"
+            st.session_state.message_type = "error"
             return
         
         if not results:
-            st.markdown('<div class="status-text" style="background-color: #fff3cd;">未找到符合条件的座位。</div>', unsafe_allow_html=True)
+            st.session_state.message = "未找到符合条件的座位。"
+            st.session_state.message_type = "warning"
         else:
             for seat in results:
                 st.markdown(f"""
@@ -369,106 +392,124 @@ class LibrarySystem:
 
     def reserve_seat(self, seat_id, floor, area, seat_type, confirm_choice):
         if not self.current_user:
-            st.markdown('<div class="status-text" style="background-color: #fff3cd;">[提示] 请先登录后再预约座位。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[提示] 请先登录后再预约座位。"
+            st.session_state.message_type = "warning"
             return
-        st.markdown("<h4>预约座位</h4>", unsafe_allow_html=True)
         seat = self._find_seat(seat_id, floor, area, seat_type)
         if not seat:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 未找到该座位，请确认座位信息。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 未找到该座位，请确认座位信息。"
+            st.session_state.message_type = "error"
             return
         if seat.status != "空闲":
-            st.markdown(f'<div class="status-text" style="background-color: #f8d7da;">[错误] 该座位当前状态为「{seat.status}」，无法预约。</div>', unsafe_allow_html=True)
+            st.session_state.message = f"[错误] 该座位当前状态为「{seat.status}」，无法预约。"
+            st.session_state.message_type = "error"
             return
         user_reserved = [s for s in self.seats if s.reserved_by == self.current_user]
         if user_reserved:
-            st.markdown('<div class="status-text" style="background-color: #fff3cd;">[提示] 您已预约了以下座位：</div>', unsafe_allow_html=True)
+            st.write("[提示] 您已预约了以下座位：")
             for s in user_reserved:
                 st.write(f"  {s}")
             if confirm_choice != "y":
-                st.markdown('<div class="status-text" style="background-color: #fff3cd;">[提示] 已取消预约。</div>', unsafe_allow_html=True)
+                st.session_state.message = "[提示] 已取消预约。"
+                st.session_state.message_type = "warning"
                 return
         seat.reserve(self.current_user)
         self.file_manager.save_seats(self.seats)
-        st.markdown(f'<div class="status-text" style="background-color: #d4edda;">[成功] 预约成功！{seat}</div>', unsafe_allow_html=True)
+        st.session_state.message = f"[成功] 预约成功！{seat}"
+        st.session_state.message_type = "success"
 
     def occupy_seat(self, seat_id, floor, area, seat_type):
         if not self.current_user:
-            st.markdown('<div class="status-text" style="background-color: #fff3cd;">[提示] 请先登录。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[提示] 请先登录。"
+            st.session_state.message_type = "warning"
             return
-        st.markdown("<h4>签到占座</h4>", unsafe_allow_html=True)
         seat = self._find_seat(seat_id, floor, area, seat_type)
         if not seat:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 未找到该座位。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 未找到该座位。"
+            st.session_state.message_type = "error"
             return
         if seat.status == "已占用":
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 该座位已被占用。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 该座位已被占用。"
+            st.session_state.message_type = "error"
             return
         if seat.reserved_by != self.current_user:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 该座位不是您预约的，无法签到。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 该座位不是您预约的，无法签到。"
+            st.session_state.message_type = "error"
             return
         seat.occupy(self.current_user)
         self.file_manager.save_seats(self.seats)
-        st.markdown(f'<div class="status-text" style="background-color: #d4edda;">[成功] 签到成功！{seat}</div>', unsafe_allow_html=True)
+        st.session_state.message = f"[成功] 签到成功！{seat}"
+        st.session_state.message_type = "success"
 
     def release_seat(self, seat_id, floor, area, seat_type):
-        st.markdown("<h4>释放座位</h4>", unsafe_allow_html=True)
         seat = self._find_seat(seat_id, floor, area, seat_type)
         if not seat:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 未找到该座位。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 未找到该座位。"
+            st.session_state.message_type = "error"
             return
         if seat.status == "空闲":
-            st.markdown('<div class="status-text" style="background-color: #fff3cd;">[提示] 该座位已经是空闲状态，无需释放。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[提示] 该座位已经是空闲状态，无需释放。"
+            st.session_state.message_type = "warning"
             return
         if self.current_user and seat.reserved_by != self.current_user:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 您只能释放自己预约的座位。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 您只能释放自己预约的座位。"
+            st.session_state.message_type = "error"
             return
         seat.release()
         self.file_manager.save_seats(self.seats)
-        st.markdown(f'<div class="status-text" style="background-color: #d4edda;">[成功] 座位已释放：{seat}</div>', unsafe_allow_html=True)
+        st.session_state.message = f"[成功] 座位已释放：{seat}"
+        st.session_state.message_type = "success"
 
     def modify_seat(self, old_id, old_floor, old_area, old_type, new_id, new_floor, new_area, new_type):
         if not self.current_user:
-            st.markdown('<div class="status-text" style="background-color: #fff3cd;">[提示] 请先登录。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[提示] 请先登录。"
+            st.session_state.message_type = "warning"
             return
-        st.markdown("<h4>修改预约（更换座位）</h4>", unsafe_allow_html=True)
         old_seat = self._find_seat(old_id, old_floor, old_area, old_type)
         if not old_seat:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 未找到原座位。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 未找到原座位。"
+            st.session_state.message_type = "error"
             return
         if old_seat.reserved_by != self.current_user:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 您只能修改自己预约的座位。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 您只能修改自己预约的座位。"
+            st.session_state.message_type = "error"
             return
         
         new_seat = self._find_seat(new_id, new_floor, new_area, new_type)
         if not new_seat:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 未找到新座位，请确认座位信息。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 未找到新座位，请确认座位信息。"
+            st.session_state.message_type = "error"
             return
         if new_seat.status != "空闲":
-            st.markdown(f'<div class="status-text" style="background-color: #f8d7da;">[错误] 新座位当前状态为「{new_seat.status}」，无法预约。</div>', unsafe_allow_html=True)
+            st.session_state.message = f"[错误] 新座位当前状态为「{new_seat.status}」，无法预约。"
+            st.session_state.message_type = "error"
             return
         
         old_seat.release()
         new_seat.reserve(self.current_user)
         self.file_manager.save_seats(self.seats)
-        st.markdown(f'<div class="status-text" style="background-color: #d4edda;">[成功] 已将预约从 {old_floor}楼{old_area}{old_type}#{old_id} 更换为 {new_seat}</div>', unsafe_allow_html=True)
+        st.session_state.message = f"[成功] 已将预约从 {old_floor}楼{old_area}{old_type}#{old_id} 更换为 {new_seat}"
+        st.session_state.message_type = "success"
 
     def delete_seat(self, seat_id, floor, area, seat_type, confirm_del):
-        st.markdown("<h4>删除座位</h4>", unsafe_allow_html=True)
         seat = self._find_seat(seat_id, floor, area, seat_type)
         if not seat:
-            st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 未找到该座位。</div>', unsafe_allow_html=True)
+            st.session_state.message = "[错误] 未找到该座位。"
+            st.session_state.message_type = "error"
             return
         if seat.status != "空闲":
-            st.markdown(f'<div class="status-text" style="background-color: #fff3cd;">[警告] 该座位当前状态为「{seat.status}」，仍有用户在使用！</div>', unsafe_allow_html=True)
+            st.session_state.message = f"[警告] 该座位当前状态为「{seat.status}」，仍有用户在使用！"
+            st.session_state.message_type = "warning"
             if confirm_del != "y":
-                st.markdown('<div class="status-text" style="background-color: #fff3cd;">[提示] 已取消删除。</div>', unsafe_allow_html=True)
+                st.session_state.message = "[提示] 已取消删除。"
+                st.session_state.message_type = "warning"
                 return
         self.seats.remove(seat)
         self.file_manager.save_seats(self.seats)
-        st.markdown(f'<div class="status-text" style="background-color: #d4edda;">[成功] 座位已删除：{floor}楼{area}{seat_type}#{seat_id}</div>', unsafe_allow_html=True)
+        st.session_state.message = f"[成功] 座位已删除：{floor}楼{area}{seat_type}#{seat_id}"
+        st.session_state.message_type = "success"
 
     def statistics(self):
-        st.markdown("<h4>数据统计</h4>", unsafe_allow_html=True)
         total = len(self.seats)
         free = sum(1 for s in self.seats if s.status == "空闲")
         reserved = sum(1 for s in self.seats if s.status == "已预约")
@@ -554,6 +595,19 @@ def main():
     # 页面标题
     st.title("📚 图书馆座位预约管理系统")
     
+    # ✅ 显示全局消息提示（返回主菜单后自动显示）
+    if st.session_state.message:
+        if st.session_state.message_type == "success":
+            st.markdown(f'<div class="status-text" style="background-color: #d4edda;">{st.session_state.message}</div>', unsafe_allow_html=True)
+        elif st.session_state.message_type == "error":
+            st.markdown(f'<div class="status-text" style="background-color: #f8d7da;">{st.session_state.message}</div>', unsafe_allow_html=True)
+        elif st.session_state.message_type == "warning":
+            st.markdown(f'<div class="status-text" style="background-color: #fff3cd;">{st.session_state.message}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="status-text" style="background-color: #d1ecf1;">{st.session_state.message}</div>', unsafe_allow_html=True)
+        # 显示后清空消息，避免下次刷新重复显示
+        st.session_state.message = None
+    
     # 加载系统
     system = LibrarySystem()
     
@@ -618,6 +672,7 @@ def main():
         
         # 1 用户注册
         if st.session_state.selected_func == "1 - 用户注册":
+            st.markdown("<h4>用户注册</h4>", unsafe_allow_html=True)
             uname = st.text_input("请设置用户名：", key="reg_uname")
             acc = st.text_input("请设置账号：", key="reg_acc")
             pwd = st.text_input("请设置密码：", type="password", key="reg_pwd")
@@ -629,6 +684,7 @@ def main():
         
         # 2 用户登录
         elif st.session_state.selected_func == "2 - 用户登录":
+            st.markdown("<h4>用户登录</h4>", unsafe_allow_html=True)
             uname = st.text_input("请输入用户名：", key="login_uname")
             acc = st.text_input("请输入账号：", key="login_acc")
             pwd = st.text_input("请输入密码：", type="password", key="login_pwd")
@@ -639,6 +695,7 @@ def main():
         
         # 3 用户登出
         elif st.session_state.selected_func == "3 - 用户登出":
+            st.markdown("<h4>用户登出</h4>", unsafe_allow_html=True)
             if st.button("确认登出"):
                 system.logout()
                 st.session_state.func_executed = True
@@ -653,6 +710,7 @@ def main():
         
         # 5 添加座位
         elif st.session_state.selected_func == "5 - 添加座位":
+            st.markdown("<h4>添加座位</h4>", unsafe_allow_html=True)
             sid = st.number_input("请输入座位编号(1~3600)：", min_value=1, max_value=3600, key="add_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="add_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="add_area")
@@ -664,6 +722,7 @@ def main():
         
         # 6 显示所有座位
         elif st.session_state.selected_func == "6 - 显示所有座位":
+            st.markdown("<h4>座位列表</h4>", unsafe_allow_html=True)
             system.show_seats()
             if st.button("返回菜单"):
                 st.session_state.func_executed = True
@@ -671,6 +730,7 @@ def main():
         
         # 7 查询座位
         elif st.session_state.selected_func == "7 - 查询座位":
+            st.markdown("<h4>查询座位</h4>", unsafe_allow_html=True)
             q_choice = st.selectbox(
                 "选择查询方式", 
                 ["1","2","3","4","5"],
@@ -696,6 +756,7 @@ def main():
         
         # 8 预约座位
         elif st.session_state.selected_func == "8 - 预约座位":
+            st.markdown("<h4>预约座位</h4>", unsafe_allow_html=True)
             sid = st.number_input("请输入座位编号(1~3600)：", min_value=1, max_value=3600, key="res_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="res_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="res_area")
@@ -708,6 +769,7 @@ def main():
         
         # 9 签到占座
         elif st.session_state.selected_func == "9 - 签到占座":
+            st.markdown("<h4>签到占座</h4>", unsafe_allow_html=True)
             sid = st.number_input("请输入座位编号(1~3600)：", min_value=1, max_value=3600, key="occ_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="occ_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="occ_area")
@@ -719,6 +781,7 @@ def main():
         
         # 10 释放座位
         elif st.session_state.selected_func == "10 - 释放座位":
+            st.markdown("<h4>释放座位</h4>", unsafe_allow_html=True)
             sid = st.number_input("请输入要释放的座位编号(1~3600)：", min_value=1, max_value=3600, key="rel_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="rel_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="rel_area")
@@ -730,6 +793,7 @@ def main():
         
         # 11 修改预约
         elif st.session_state.selected_func == "11 - 修改预约（更换座位）":
+            st.markdown("<h4>修改预约（更换座位）</h4>", unsafe_allow_html=True)
             st.markdown("<h6>原座位信息</h6>", unsafe_allow_html=True)
             old_sid = st.number_input("原座位编号：", min_value=1, max_value=3600, key="mod_old_sid")
             old_floor = st.number_input("原楼层：", min_value=1, max_value=6, key="mod_old_floor")
@@ -751,6 +815,7 @@ def main():
         
         # 12 删除座位
         elif st.session_state.selected_func == "12 - 删除座位":
+            st.markdown("<h4>删除座位</h4>", unsafe_allow_html=True)
             sid = st.number_input("请输入要删除的座位编号(1~3600)：", min_value=1, max_value=3600, key="del_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="del_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="del_area")
@@ -763,6 +828,7 @@ def main():
         
         # 13 数据统计
         elif st.session_state.selected_func == "13 - 数据统计":
+            st.markdown("<h4>数据统计</h4>", unsafe_allow_html=True)
             system.statistics()
             if st.button("返回菜单", key="stat_back"):
                 st.session_state.func_executed = True
@@ -770,6 +836,7 @@ def main():
         
         # 14 保存数据
         elif st.session_state.selected_func == "14 - 保存数据":
+            st.markdown("<h4>保存数据</h4>", unsafe_allow_html=True)
             if st.button("确认保存所有数据"):
                 system._save_all()
                 st.session_state.func_executed = True
