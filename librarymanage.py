@@ -40,6 +40,13 @@ def set_custom_style():
         background-color: #2980b9;
         transform: translateY(-2px);
     }
+    /* 退出按钮样式（红色） */
+    div.stButton > button[kind="secondary"] {
+        background-color: #dc3545;
+    }
+    div.stButton > button[kind="secondary"]:hover {
+        background-color: #c82333;
+    }
     /* 提示文本样式 */
     .status-text {
         padding: 0.8rem;
@@ -66,7 +73,7 @@ def init_session_state():
     # 功能执行状态（用于自动重置）
     if "func_executed" not in st.session_state:
         st.session_state.func_executed = False
-    # ✅ 新增：全局消息提示（用于返回主菜单后显示）
+    # 全局消息提示（用于返回主菜单后显示）
     if "message" not in st.session_state:
         st.session_state.message = None
     if "message_type" not in st.session_state:
@@ -95,8 +102,8 @@ class Seat:
     VALID_AREAS = ["北区", "南区", "中区"]
     VALID_TYPES = ["普通座", "电脑座"]
     VALID_FLOORS = range(1, 7)
-    # 座位编号范围：1-3600（6楼×3区×200个座位）
-    VALID_SEAT_IDS = range(1, 3601)
+    # ✅ 修改：每个区域的座位编号都是1-100
+    VALID_SEAT_IDS = range(1, 101)
     
     def __init__(self, seat_id, floor, area, seat_type):
         self.seat_id = seat_id
@@ -133,8 +140,8 @@ class Seat:
         return seat
     def __str__(self):
         reserved_info = self.reserved_by if self.reserved_by else "无"
-        return (f"{self.floor}楼{self.area}{self.seat_type}|"
-                f"编号:{self.seat_id}|状态:{self.status}|预约人:{reserved_info}")
+        return (f"{self.floor}楼{self.area}{self.seat_type} #{self.seat_id}|"
+                f"状态:{self.status}|预约人:{reserved_info}")
     def __eq__(self, other):
         if not isinstance(other, Seat):
             return False
@@ -198,22 +205,19 @@ class LibrarySystem:
             st.session_state.message = "[系统] 已自动生成1-6楼所有默认座位（共3600个）"
             st.session_state.message_type = "success"
 
-    # 1-6楼 × 每层3区 × 每区100普通+100电脑
+    # ✅ 完全按照你的要求：每个区域的普通座和电脑座都是1-100编号
     def _generate_default_seats(self):
         """自动生成1-6楼、南北中区、每区100个普通座+100个电脑座"""
-        seat_id = 1
         # 遍历1-6楼
         for floor in Seat.VALID_FLOORS:
             # 遍历三个区域（北区、中区、南区）
             for area in Seat.VALID_AREAS:
-                # 每个区域生成100个普通座
-                for _ in range(100):
+                # 每个区域生成100个普通座（编号1-100）
+                for seat_id in range(1, 101):
                     self.seats.append(Seat(seat_id, floor, area, "普通座"))
-                    seat_id += 1
-                # 每个区域生成100个电脑座
-                for _ in range(100):
+                # 每个区域生成100个电脑座（编号1-100）
+                for seat_id in range(1, 101):
                     self.seats.append(Seat(seat_id, floor, area, "电脑座"))
-                    seat_id += 1
         # 总座位数：6楼 × 3区 × 200个 = 3600个
 
     def _save_all(self):
@@ -229,7 +233,7 @@ class LibrarySystem:
 
     def _validate_seat_input(self, seat_id, floor, area, seat_type):
         if seat_id not in Seat.VALID_SEAT_IDS:
-            return False, "座位编号必须在1~3600之间。"
+            return False, "座位编号必须在1~100之间。"
         if floor not in Seat.VALID_FLOORS:
             return False, "楼层必须在1~6之间。"
         if area not in Seat.VALID_AREAS:
@@ -265,7 +269,6 @@ class LibrarySystem:
         st.session_state.message_type = "success"
         return True
 
-    # ✅ 登录错误提示改为全局消息，返回主菜单后显示
     def login(self, username, account, password):
         # 第一步：先检查用户名是否存在
         if username not in self.users:
@@ -337,7 +340,7 @@ class LibrarySystem:
             st.session_state.message = "（暂无座位数据）"
             st.session_state.message_type = "warning"
             return
-        sorted_seats = sorted(self.seats, key=lambda s: (s.floor, s.area, s.seat_id))
+        sorted_seats = sorted(self.seats, key=lambda s: (s.floor, s.area, s.seat_type, s.seat_id))
         # 用卡片展示座位信息
         for idx, seat in enumerate(sorted_seats):
             with st.container():
@@ -586,6 +589,13 @@ class LibrarySystem:
         </div>
         """, unsafe_allow_html=True)
 
+# ✅ 通用退出按钮函数
+def exit_button():
+    if st.button("退出当前功能", type="secondary"):
+        st.session_state.selected_func = "请选择功能"
+        st.session_state.func_executed = True
+        st.rerun()
+
 # ==================== 主程序 ====================
 def main():
     # 初始化
@@ -595,7 +605,7 @@ def main():
     # 页面标题
     st.title("📚 图书馆座位预约管理系统")
     
-    # ✅ 显示全局消息提示（返回主菜单后自动显示）
+    # 显示全局消息提示（返回主菜单后自动显示）
     if st.session_state.message:
         if st.session_state.message_type == "success":
             st.markdown(f'<div class="status-text" style="background-color: #d4edda;">{st.session_state.message}</div>', unsafe_allow_html=True)
@@ -677,10 +687,14 @@ def main():
             acc = st.text_input("请设置账号：", key="reg_acc")
             pwd = st.text_input("请设置密码：", type="password", key="reg_pwd")
             cpwd = st.text_input("请确认密码：", type="password", key="reg_cpwd")
-            if st.button("提交注册"):
-                system.register(uname, acc, pwd, cpwd)
-                st.session_state.func_executed = True
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("提交注册"):
+                    system.register(uname, acc, pwd, cpwd)
+                    st.session_state.func_executed = True
+                    st.rerun()
+            with col2:
+                exit_button()
         
         # 2 用户登录
         elif st.session_state.selected_func == "2 - 用户登录":
@@ -688,45 +702,55 @@ def main():
             uname = st.text_input("请输入用户名：", key="login_uname")
             acc = st.text_input("请输入账号：", key="login_acc")
             pwd = st.text_input("请输入密码：", type="password", key="login_pwd")
-            if st.button("登录"):
-                system.login(uname, acc, pwd)
-                st.session_state.func_executed = True
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("登录"):
+                    system.login(uname, acc, pwd)
+                    st.session_state.func_executed = True
+                    st.rerun()
+            with col2:
+                exit_button()
         
         # 3 用户登出
         elif st.session_state.selected_func == "3 - 用户登出":
             st.markdown("<h4>用户登出</h4>", unsafe_allow_html=True)
-            if st.button("确认登出"):
-                system.logout()
-                st.session_state.func_executed = True
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("确认登出"):
+                    system.logout()
+                    st.session_state.func_executed = True
+                    st.rerun()
+            with col2:
+                exit_button()
         
         # 4 查看个人信息
         elif st.session_state.selected_func == "4 - 查看个人信息":
             system.show_user_info()
-            if st.button("返回菜单"):
-                st.session_state.func_executed = True
-                st.rerun()
+            st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+            exit_button()
         
         # 5 添加座位
         elif st.session_state.selected_func == "5 - 添加座位":
             st.markdown("<h4>添加座位</h4>", unsafe_allow_html=True)
-            sid = st.number_input("请输入座位编号(1~3600)：", min_value=1, max_value=3600, key="add_sid")
+            sid = st.number_input("请输入座位编号(1~100)：", min_value=1, max_value=100, key="add_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="add_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="add_area")
             stype = st.selectbox("请选择座位类型：", Seat.VALID_TYPES, key="add_type")
-            if st.button("确认添加"):
-                system.add_seat(sid, floor, area, stype)
-                st.session_state.func_executed = True
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("确认添加"):
+                    system.add_seat(sid, floor, area, stype)
+                    st.session_state.func_executed = True
+                    st.rerun()
+            with col2:
+                exit_button()
         
         # 6 显示所有座位
         elif st.session_state.selected_func == "6 - 显示所有座位":
             st.markdown("<h4>座位列表</h4>", unsafe_allow_html=True)
             system.show_seats()
-            if st.button("返回菜单"):
-                st.session_state.func_executed = True
-                st.rerun()
+            st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+            exit_button()
         
         # 7 查询座位
         elif st.session_state.selected_func == "7 - 查询座位":
@@ -748,54 +772,67 @@ def main():
                 t = st.selectbox("座位类型：", [""] + Seat.VALID_TYPES, key="q_type")
                 s = st.selectbox("状态：", ["", "空闲", "已预约", "已占用"], key="q_status")
             
-            if st.button("执行查询"):
-                system.search_seats(q_choice, f, a, t, s)
-            if st.button("返回菜单", key="q_back"):
-                st.session_state.func_executed = True
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("执行查询"):
+                    system.search_seats(q_choice, f, a, t, s)
+            with col2:
+                exit_button()
         
         # 8 预约座位
         elif st.session_state.selected_func == "8 - 预约座位":
             st.markdown("<h4>预约座位</h4>", unsafe_allow_html=True)
-            sid = st.number_input("请输入座位编号(1~3600)：", min_value=1, max_value=3600, key="res_sid")
+            sid = st.number_input("请输入座位编号(1~100)：", min_value=1, max_value=100, key="res_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="res_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="res_area")
             stype = st.selectbox("请选择座位类型：", Seat.VALID_TYPES, key="res_type")
             confirm = st.selectbox("是否继续预约新座位？", ["", "y", "n"], key="res_confirm")
-            if st.button("确认预约"):
-                system.reserve_seat(sid, floor, area, stype, confirm)
-                st.session_state.func_executed = True
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("确认预约"):
+                    system.reserve_seat(sid, floor, area, stype, confirm)
+                    st.session_state.func_executed = True
+                    st.rerun()
+            with col2:
+                exit_button()
         
         # 9 签到占座
         elif st.session_state.selected_func == "9 - 签到占座":
             st.markdown("<h4>签到占座</h4>", unsafe_allow_html=True)
-            sid = st.number_input("请输入座位编号(1~3600)：", min_value=1, max_value=3600, key="occ_sid")
+            sid = st.number_input("请输入座位编号(1~100)：", min_value=1, max_value=100, key="occ_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="occ_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="occ_area")
             stype = st.selectbox("请选择座位类型：", Seat.VALID_TYPES, key="occ_type")
-            if st.button("确认签到"):
-                system.occupy_seat(sid, floor, area, stype)
-                st.session_state.func_executed = True
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("确认签到"):
+                    system.occupy_seat(sid, floor, area, stype)
+                    st.session_state.func_executed = True
+                    st.rerun()
+            with col2:
+                exit_button()
         
         # 10 释放座位
         elif st.session_state.selected_func == "10 - 释放座位":
             st.markdown("<h4>释放座位</h4>", unsafe_allow_html=True)
-            sid = st.number_input("请输入要释放的座位编号(1~3600)：", min_value=1, max_value=3600, key="rel_sid")
+            sid = st.number_input("请输入要释放的座位编号(1~100)：", min_value=1, max_value=100, key="rel_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="rel_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="rel_area")
             stype = st.selectbox("请选择座位类型：", Seat.VALID_TYPES, key="rel_type")
-            if st.button("确认释放"):
-                system.release_seat(sid, floor, area, stype)
-                st.session_state.func_executed = True
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("确认释放"):
+                    system.release_seat(sid, floor, area, stype)
+                    st.session_state.func_executed = True
+                    st.rerun()
+            with col2:
+                exit_button()
         
         # 11 修改预约
         elif st.session_state.selected_func == "11 - 修改预约（更换座位）":
             st.markdown("<h4>修改预约（更换座位）</h4>", unsafe_allow_html=True)
             st.markdown("<h6>原座位信息</h6>", unsafe_allow_html=True)
-            old_sid = st.number_input("原座位编号：", min_value=1, max_value=3600, key="mod_old_sid")
+            old_sid = st.number_input("原座位编号：", min_value=1, max_value=100, key="mod_old_sid")
             old_floor = st.number_input("原楼层：", min_value=1, max_value=6, key="mod_old_floor")
             old_area = st.selectbox("原区域：", Seat.VALID_AREAS, key="mod_old_area")
             old_type = st.selectbox("原类型：", Seat.VALID_TYPES, key="mod_old_type")
@@ -803,44 +840,55 @@ def main():
             st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
             
             st.markdown("<h6>新座位信息</h6>", unsafe_allow_html=True)
-            new_sid = st.number_input("新座位编号：", min_value=1, max_value=3600, key="mod_new_sid")
+            new_sid = st.number_input("新座位编号：", min_value=1, max_value=100, key="mod_new_sid")
             new_floor = st.number_input("新楼层：", min_value=1, max_value=6, key="mod_new_floor")
             new_area = st.selectbox("新区域：", Seat.VALID_AREAS, key="mod_new_area")
             new_type = st.selectbox("新类型：", Seat.VALID_TYPES, key="mod_new_type")
             
-            if st.button("确认更换"):
-                system.modify_seat(old_sid, old_floor, old_area, old_type, new_sid, new_floor, new_area, new_type)
-                st.session_state.func_executed = True
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("确认更换"):
+                    system.modify_seat(old_sid, old_floor, old_area, old_type, new_sid, new_floor, new_area, new_type)
+                    st.session_state.func_executed = True
+                    st.rerun()
+            with col2:
+                exit_button()
         
         # 12 删除座位
         elif st.session_state.selected_func == "12 - 删除座位":
             st.markdown("<h4>删除座位</h4>", unsafe_allow_html=True)
-            sid = st.number_input("请输入要删除的座位编号(1~3600)：", min_value=1, max_value=3600, key="del_sid")
+            sid = st.number_input("请输入要删除的座位编号(1~100)：", min_value=1, max_value=100, key="del_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="del_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="del_area")
             stype = st.selectbox("请选择座位类型：", Seat.VALID_TYPES, key="del_type")
             confirm_del = st.selectbox("确定要强制删除吗？", ["", "y", "n"], key="del_confirm")
-            if st.button("确认删除"):
-                system.delete_seat(sid, floor, area, stype, confirm_del)
-                st.session_state.func_executed = True
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("确认删除"):
+                    system.delete_seat(sid, floor, area, stype, confirm_del)
+                    st.session_state.func_executed = True
+                    st.rerun()
+            with col2:
+                exit_button()
         
         # 13 数据统计
         elif st.session_state.selected_func == "13 - 数据统计":
             st.markdown("<h4>数据统计</h4>", unsafe_allow_html=True)
             system.statistics()
-            if st.button("返回菜单", key="stat_back"):
-                st.session_state.func_executed = True
-                st.rerun()
+            st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+            exit_button()
         
         # 14 保存数据
         elif st.session_state.selected_func == "14 - 保存数据":
             st.markdown("<h4>保存数据</h4>", unsafe_allow_html=True)
-            if st.button("确认保存所有数据"):
-                system._save_all()
-                st.session_state.func_executed = True
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("确认保存所有数据"):
+                    system._save_all()
+                    st.session_state.func_executed = True
+                    st.rerun()
+            with col2:
+                exit_button()
         
         st.markdown('</div>', unsafe_allow_html=True)
 
