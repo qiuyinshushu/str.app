@@ -78,6 +78,11 @@ def init_session_state():
         st.session_state.message = None
     if "message_type" not in st.session_state:
         st.session_state.message_type = "info"  # success/error/warning/info
+    # 删除座位确认状态
+    if "delete_confirm" not in st.session_state:
+        st.session_state.delete_confirm = False
+    if "delete_seat_data" not in st.session_state:
+        st.session_state.delete_seat_data = None
 
 # ==================== 用户类 ====================
 class User:
@@ -102,7 +107,7 @@ class Seat:
     VALID_AREAS = ["北区", "南区", "中区"]
     VALID_TYPES = ["普通座", "电脑座"]
     VALID_FLOORS = range(1, 7)
-    # ✅ 修改：每个区域的座位编号都是1-100
+    # 每个区域的座位编号都是1-100
     VALID_SEAT_IDS = range(1, 101)
     
     def __init__(self, seat_id, floor, area, seat_type):
@@ -205,7 +210,7 @@ class LibrarySystem:
             st.session_state.message = "[系统] 已自动生成1-6楼所有默认座位（共3600个）"
             st.session_state.message_type = "success"
 
-    # ✅ 完全按照你的要求：每个区域的普通座和电脑座都是1-100编号
+    # 每个区域的普通座和电脑座都是1-100编号
     def _generate_default_seats(self):
         """自动生成1-6楼、南北中区、每区100个普通座+100个电脑座"""
         # 遍历1-6楼
@@ -303,6 +308,7 @@ class LibrarySystem:
         # 登出后重置菜单
         st.session_state.selected_func = "请选择功能"
 
+    # ✅ 修改：显示已预约座位的全部信息
     def show_user_info(self):
         if not self.current_user:
             st.session_state.message = "[提示] 请先登录。"
@@ -318,6 +324,17 @@ class LibrarySystem:
         with col3:
             reserved_count = sum(1 for s in self.seats if s.reserved_by == self.current_user)
             st.write(f"**已预约座位数**: {reserved_count}")
+        
+        # 显示已预约座位的全部信息
+        if reserved_count > 0:
+            st.markdown("<h5>我的预约座位</h5>", unsafe_allow_html=True)
+            user_reserved = [s for s in self.seats if s.reserved_by == self.current_user]
+            for seat in user_reserved:
+                st.markdown(f"""
+                <div class="card">
+                    <p>{seat}</p>
+                </div>
+                """, unsafe_allow_html=True)
 
     def add_seat(self, seat_id, floor, area, seat_type):
         valid, msg = self._validate_seat_input(seat_id, floor, area, seat_type)
@@ -393,7 +410,8 @@ class LibrarySystem:
                 </div>
                 """, unsafe_allow_html=True)
 
-    def reserve_seat(self, seat_id, floor, area, seat_type, confirm_choice):
+    # ✅ 修改：删除了"是否继续预约新座位"选项
+    def reserve_seat(self, seat_id, floor, area, seat_type):
         if not self.current_user:
             st.session_state.message = "[提示] 请先登录后再预约座位。"
             st.session_state.message_type = "warning"
@@ -407,15 +425,6 @@ class LibrarySystem:
             st.session_state.message = f"[错误] 该座位当前状态为「{seat.status}」，无法预约。"
             st.session_state.message_type = "error"
             return
-        user_reserved = [s for s in self.seats if s.reserved_by == self.current_user]
-        if user_reserved:
-            st.write("[提示] 您已预约了以下座位：")
-            for s in user_reserved:
-                st.write(f"  {s}")
-            if confirm_choice != "y":
-                st.session_state.message = "[提示] 已取消预约。"
-                st.session_state.message_type = "warning"
-                return
         seat.reserve(self.current_user)
         self.file_manager.save_seats(self.seats)
         st.session_state.message = f"[成功] 预约成功！{seat}"
@@ -494,6 +503,7 @@ class LibrarySystem:
         st.session_state.message = f"[成功] 已将预约从 {old_floor}楼{old_area}{old_type}#{old_id} 更换为 {new_seat}"
         st.session_state.message_type = "success"
 
+    # ✅ 修改：点击删除后触发确认，使用"是/否"选择
     def delete_seat(self, seat_id, floor, area, seat_type, confirm_del):
         seat = self._find_seat(seat_id, floor, area, seat_type)
         if not seat:
@@ -501,9 +511,7 @@ class LibrarySystem:
             st.session_state.message_type = "error"
             return
         if seat.status != "空闲":
-            st.session_state.message = f"[警告] 该座位当前状态为「{seat.status}」，仍有用户在使用！"
-            st.session_state.message_type = "warning"
-            if confirm_del != "y":
+            if confirm_del != "是":
                 st.session_state.message = "[提示] 已取消删除。"
                 st.session_state.message_type = "warning"
                 return
@@ -589,11 +597,13 @@ class LibrarySystem:
         </div>
         """, unsafe_allow_html=True)
 
-# ✅ 通用退出按钮函数
+# 通用退出按钮函数
 def exit_button():
     if st.button("退出当前功能", type="secondary"):
         st.session_state.selected_func = "请选择功能"
         st.session_state.func_executed = True
+        st.session_state.delete_confirm = False
+        st.session_state.delete_seat_data = None
         st.rerun()
 
 # ==================== 主程序 ====================
@@ -723,11 +733,12 @@ def main():
             with col2:
                 exit_button()
         
+        # ✅ 修改：返回按钮移到最顶部
         # 4 查看个人信息
         elif st.session_state.selected_func == "4 - 查看个人信息":
-            system.show_user_info()
-            st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
             exit_button()
+            st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+            system.show_user_info()
         
         # 5 添加座位
         elif st.session_state.selected_func == "5 - 添加座位":
@@ -745,12 +756,13 @@ def main():
             with col2:
                 exit_button()
         
+        # ✅ 修改：返回按钮移到最顶部
         # 6 显示所有座位
         elif st.session_state.selected_func == "6 - 显示所有座位":
+            exit_button()
+            st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
             st.markdown("<h4>座位列表</h4>", unsafe_allow_html=True)
             system.show_seats()
-            st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-            exit_button()
         
         # 7 查询座位
         elif st.session_state.selected_func == "7 - 查询座位":
@@ -779,6 +791,7 @@ def main():
             with col2:
                 exit_button()
         
+        # ✅ 修改：删除了"是否继续预约新座位"选项
         # 8 预约座位
         elif st.session_state.selected_func == "8 - 预约座位":
             st.markdown("<h4>预约座位</h4>", unsafe_allow_html=True)
@@ -786,11 +799,10 @@ def main():
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="res_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="res_area")
             stype = st.selectbox("请选择座位类型：", Seat.VALID_TYPES, key="res_type")
-            confirm = st.selectbox("是否继续预约新座位？", ["", "y", "n"], key="res_confirm")
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("确认预约"):
-                    system.reserve_seat(sid, floor, area, stype, confirm)
+                    system.reserve_seat(sid, floor, area, stype)
                     st.session_state.func_executed = True
                     st.rerun()
             with col2:
@@ -854,22 +866,56 @@ def main():
             with col2:
                 exit_button()
         
+        # ✅ 修改：点击删除后触发确认，使用"是/否"选择
         # 12 删除座位
         elif st.session_state.selected_func == "12 - 删除座位":
             st.markdown("<h4>删除座位</h4>", unsafe_allow_html=True)
-            sid = st.number_input("请输入要删除的座位编号(1~100)：", min_value=1, max_value=100, key="del_sid")
-            floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="del_floor")
-            area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="del_area")
-            stype = st.selectbox("请选择座位类型：", Seat.VALID_TYPES, key="del_type")
-            confirm_del = st.selectbox("确定要强制删除吗？", ["", "y", "n"], key="del_confirm")
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("确认删除"):
-                    system.delete_seat(sid, floor, area, stype, confirm_del)
-                    st.session_state.func_executed = True
-                    st.rerun()
-            with col2:
-                exit_button()
+            
+            if not st.session_state.delete_confirm:
+                sid = st.number_input("请输入要删除的座位编号(1~100)：", min_value=1, max_value=100, key="del_sid")
+                floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="del_floor")
+                area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="del_area")
+                stype = st.selectbox("请选择座位类型：", Seat.VALID_TYPES, key="del_type")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("删除座位"):
+                        seat = system._find_seat(sid, floor, area, stype)
+                        if not seat:
+                            st.session_state.message = "[错误] 未找到该座位。"
+                            st.session_state.message_type = "error"
+                            st.session_state.func_executed = True
+                            st.rerun()
+                        
+                        st.session_state.delete_seat_data = (sid, floor, area, stype)
+                        st.session_state.delete_confirm = True
+                        st.rerun()
+                with col2:
+                    exit_button()
+            else:
+                sid, floor, area, stype = st.session_state.delete_seat_data
+                seat = system._find_seat(sid, floor, area, stype)
+                
+                st.markdown(f"您确定要删除以下座位吗？<br>**{floor}楼{area}{stype} #{sid}**", unsafe_allow_html=True)
+                
+                if seat.status != "空闲":
+                    st.markdown(f'<div class="status-text" style="background-color: #fff3cd;">[警告] 该座位当前状态为「{seat.status}」，仍有用户在使用！</div>', unsafe_allow_html=True)
+                
+                confirm_del = st.selectbox("确认删除？", ["", "是", "否"], key="del_confirm")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("确认"):
+                        system.delete_seat(sid, floor, area, stype, confirm_del)
+                        st.session_state.delete_confirm = False
+                        st.session_state.delete_seat_data = None
+                        st.session_state.func_executed = True
+                        st.rerun()
+                with col2:
+                    if st.button("取消"):
+                        st.session_state.delete_confirm = False
+                        st.session_state.delete_seat_data = None
+                        st.rerun()
         
         # 13 数据统计
         elif st.session_state.selected_func == "13 - 数据统计":
