@@ -90,7 +90,9 @@ class Seat:
     VALID_AREAS = ["北区", "南区", "中区"]
     VALID_TYPES = ["普通座", "电脑座"]
     VALID_FLOORS = range(1, 7)
-    VALID_SEAT_IDS = range(1, 101)
+    # ✅ 修改：座位编号范围扩大到1-3600（6楼×3区×200个座位）
+    VALID_SEAT_IDS = range(1, 3601)
+    
     def __init__(self, seat_id, floor, area, seat_type):
         self.seat_id = seat_id
         self.floor = floor
@@ -184,24 +186,25 @@ class LibrarySystem:
         if not self.seats:
             self._generate_default_seats()
             self.file_manager.save_seats(self.seats)
-            st.markdown('<div class="status-text" style="background-color: #d4edda;">[系统] 已自动生成1-6楼所有默认座位</div>', unsafe_allow_html=True)
+            st.markdown('<div class="status-text" style="background-color: #d4edda;">[系统] 已自动生成1-6楼所有默认座位（共3600个）</div>', unsafe_allow_html=True)
 
+    # ✅ 完全按照你的要求重写：每层3区，每区100普通+100电脑
     def _generate_default_seats(self):
-        """自动生成1-6楼、南北中区、普通座/电脑座的默认座位"""
+        """自动生成1-6楼、南北中区、每区100个普通座+100个电脑座"""
         seat_id = 1
         # 遍历1-6楼
         for floor in Seat.VALID_FLOORS:
-            # 遍历三个区域
+            # 遍历三个区域（北区、中区、南区）
             for area in Seat.VALID_AREAS:
-                # 每个区域生成10个普通座（编号1-10）
-                for i in range(1, 11):
+                # 每个区域生成100个普通座
+                for _ in range(100):
                     self.seats.append(Seat(seat_id, floor, area, "普通座"))
                     seat_id += 1
-                # 每个区域生成10个电脑座（编号11-20）
-                for i in range(11, 21):
+                # 每个区域生成100个电脑座
+                for _ in range(100):
                     self.seats.append(Seat(seat_id, floor, area, "电脑座"))
                     seat_id += 1
-        # 总共生成：6楼 × 3区域 × 20个座位 = 360个座位
+        # 总座位数：6楼 × 3区 × 200个 = 3600个
 
     def _save_all(self):
         self.file_manager.save_users(self.users)
@@ -216,7 +219,7 @@ class LibrarySystem:
 
     def _validate_seat_input(self, seat_id, floor, area, seat_type):
         if seat_id not in Seat.VALID_SEAT_IDS:
-            return False, "座位编号必须在1~100之间。"
+            return False, "座位编号必须在1~3600之间。"
         if floor not in Seat.VALID_FLOORS:
             return False, "楼层必须在1~6之间。"
         if area not in Seat.VALID_AREAS:
@@ -646,7 +649,7 @@ def main():
         
         # 5 添加座位
         elif st.session_state.selected_func == "5 - 添加座位":
-            sid = st.number_input("请输入座位编号(1~100)：", min_value=1, max_value=100, key="add_sid")
+            sid = st.number_input("请输入座位编号(1~3600)：", min_value=1, max_value=3600, key="add_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="add_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="add_area")
             stype = st.selectbox("请选择座位类型：", Seat.VALID_TYPES, key="add_type")
@@ -689,7 +692,7 @@ def main():
         
         # 8 预约座位
         elif st.session_state.selected_func == "8 - 预约座位":
-            sid = st.number_input("请输入座位编号(1~100)：", min_value=1, max_value=100, key="res_sid")
+            sid = st.number_input("请输入座位编号(1~3600)：", min_value=1, max_value=3600, key="res_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="res_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="res_area")
             stype = st.selectbox("请选择座位类型：", Seat.VALID_TYPES, key="res_type")
@@ -701,7 +704,7 @@ def main():
         
         # 9 签到占座
         elif st.session_state.selected_func == "9 - 签到占座":
-            sid = st.number_input("请输入座位编号(1~100)：", min_value=1, max_value=100, key="occ_sid")
+            sid = st.number_input("请输入座位编号(1~3600)：", min_value=1, max_value=3600, key="occ_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="occ_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="occ_area")
             stype = st.selectbox("请选择座位类型：", Seat.VALID_TYPES, key="occ_type")
@@ -712,7 +715,7 @@ def main():
         
         # 10 释放座位
         elif st.session_state.selected_func == "10 - 释放座位":
-            sid = st.number_input("请输入要释放的座位编号(1~100)：", min_value=1, max_value=100, key="rel_sid")
+            sid = st.number_input("请输入要释放的座位编号(1~3600)：", min_value=1, max_value=3600, key="rel_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="rel_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="rel_area")
             stype = st.selectbox("请选择座位类型：", Seat.VALID_TYPES, key="rel_type")
@@ -724,7 +727,7 @@ def main():
         # 11 修改预约
         elif st.session_state.selected_func == "11 - 修改预约（更换座位）":
             st.markdown("<h6>原座位信息</h6>", unsafe_allow_html=True)
-            old_sid = st.number_input("原座位编号：", min_value=1, max_value=100, key="mod_old_sid")
+            old_sid = st.number_input("原座位编号：", min_value=1, max_value=3600, key="mod_old_sid")
             old_floor = st.number_input("原楼层：", min_value=1, max_value=6, key="mod_old_floor")
             old_area = st.selectbox("原区域：", Seat.VALID_AREAS, key="mod_old_area")
             old_type = st.selectbox("原类型：", Seat.VALID_TYPES, key="mod_old_type")
@@ -732,7 +735,7 @@ def main():
             st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
             
             st.markdown("<h6>新座位信息</h6>", unsafe_allow_html=True)
-            new_sid = st.number_input("新座位编号：", min_value=1, max_value=100, key="mod_new_sid")
+            new_sid = st.number_input("新座位编号：", min_value=1, max_value=3600, key="mod_new_sid")
             new_floor = st.number_input("新楼层：", min_value=1, max_value=6, key="mod_new_floor")
             new_area = st.selectbox("新区域：", Seat.VALID_AREAS, key="mod_new_area")
             new_type = st.selectbox("新类型：", Seat.VALID_TYPES, key="mod_new_type")
@@ -744,7 +747,7 @@ def main():
         
         # 12 删除座位
         elif st.session_state.selected_func == "12 - 删除座位":
-            sid = st.number_input("请输入要删除的座位编号(1~100)：", min_value=1, max_value=100, key="del_sid")
+            sid = st.number_input("请输入要删除的座位编号(1~3600)：", min_value=1, max_value=3600, key="del_sid")
             floor = st.number_input("请输入楼层(1~6)：", min_value=1, max_value=6, key="del_floor")
             area = st.selectbox("请选择区域：", Seat.VALID_AREAS, key="del_area")
             stype = st.selectbox("请选择座位类型：", Seat.VALID_TYPES, key="del_type")
