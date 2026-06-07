@@ -90,7 +90,7 @@ class Seat:
     VALID_AREAS = ["北区", "南区", "中区"]
     VALID_TYPES = ["普通座", "电脑座"]
     VALID_FLOORS = range(1, 7)
-    # ✅ 修改：座位编号范围扩大到1-3600（6楼×3区×200个座位）
+    # 座位编号范围：1-3600（6楼×3区×200个座位）
     VALID_SEAT_IDS = range(1, 3601)
     
     def __init__(self, seat_id, floor, area, seat_type):
@@ -188,7 +188,7 @@ class LibrarySystem:
             self.file_manager.save_seats(self.seats)
             st.markdown('<div class="status-text" style="background-color: #d4edda;">[系统] 已自动生成1-6楼所有默认座位（共3600个）</div>', unsafe_allow_html=True)
 
-    # ✅ 完全按照你的要求重写：每层3区，每区100普通+100电脑
+    # 1-6楼 × 每层3区 × 每区100普通+100电脑
     def _generate_default_seats(self):
         """自动生成1-6楼、南北中区、每区100个普通座+100个电脑座"""
         seat_id = 1
@@ -250,11 +250,16 @@ class LibrarySystem:
         st.markdown(f'<div class="status-text" style="background-color: #d4edda;">[成功] 用户 {username} 注册成功！</div>', unsafe_allow_html=True)
         return True
 
+    # ✅ 严格区分两种登录错误提示
     def login(self, username, account, password):
         st.markdown("<h4>用户登录</h4>", unsafe_allow_html=True)
+        
+        # 第一步：先检查用户名是否存在
         if username not in self.users:
             st.markdown('<div class="status-text" style="background-color: #f8d7da;">[错误] 用户名不存在，请先注册。</div>', unsafe_allow_html=True)
             return False
+        
+        # 第二步：用户名存在，再检查账号和密码
         user = self.users[username]
         if user.account == account and user.password == password:
             self.current_user = username
@@ -611,7 +616,6 @@ def main():
     with st.container():
         st.markdown('<div class="card">', unsafe_allow_html=True)
         
-        # 0 退出逻辑（整合到刷新/关闭）
         # 1 用户注册
         if st.session_state.selected_func == "1 - 用户注册":
             uname = st.text_input("请设置用户名：", key="reg_uname")
