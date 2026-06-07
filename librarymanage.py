@@ -180,7 +180,7 @@ class LibrarySystem:
         self.seats = self.file_manager.load_seats()
         self.current_user = st.session_state.current_user
         
-        # ✅ 自动生成默认座位（第一次运行时执行）
+        # 自动生成默认座位（第一次运行时执行）
         if not self.seats:
             self._generate_default_seats()
             self.file_manager.save_seats(self.seats)
@@ -618,7 +618,7 @@ def main():
             if st.button("提交注册"):
                 system.register(uname, acc, pwd, cpwd)
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         # 2 用户登录
         elif st.session_state.selected_func == "2 - 用户登录":
@@ -628,21 +628,21 @@ def main():
             if st.button("登录"):
                 system.login(uname, acc, pwd)
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         # 3 用户登出
         elif st.session_state.selected_func == "3 - 用户登出":
             if st.button("确认登出"):
                 system.logout()
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         # 4 查看个人信息
         elif st.session_state.selected_func == "4 - 查看个人信息":
             system.show_user_info()
             if st.button("返回菜单"):
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         # 5 添加座位
         elif st.session_state.selected_func == "5 - 添加座位":
@@ -653,14 +653,14 @@ def main():
             if st.button("确认添加"):
                 system.add_seat(sid, floor, area, stype)
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         # 6 显示所有座位
         elif st.session_state.selected_func == "6 - 显示所有座位":
             system.show_seats()
             if st.button("返回菜单"):
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         # 7 查询座位
         elif st.session_state.selected_func == "7 - 查询座位":
@@ -685,7 +685,7 @@ def main():
                 system.search_seats(q_choice, f, a, t, s)
             if st.button("返回菜单", key="q_back"):
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         # 8 预约座位
         elif st.session_state.selected_func == "8 - 预约座位":
@@ -697,7 +697,7 @@ def main():
             if st.button("确认预约"):
                 system.reserve_seat(sid, floor, area, stype, confirm)
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         # 9 签到占座
         elif st.session_state.selected_func == "9 - 签到占座":
@@ -708,7 +708,7 @@ def main():
             if st.button("确认签到"):
                 system.occupy_seat(sid, floor, area, stype)
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         # 10 释放座位
         elif st.session_state.selected_func == "10 - 释放座位":
@@ -719,7 +719,7 @@ def main():
             if st.button("确认释放"):
                 system.release_seat(sid, floor, area, stype)
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         # 11 修改预约
         elif st.session_state.selected_func == "11 - 修改预约（更换座位）":
@@ -740,7 +740,7 @@ def main():
             if st.button("确认更换"):
                 system.modify_seat(old_sid, old_floor, old_area, old_type, new_sid, new_floor, new_area, new_type)
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         # 12 删除座位
         elif st.session_state.selected_func == "12 - 删除座位":
@@ -752,21 +752,21 @@ def main():
             if st.button("确认删除"):
                 system.delete_seat(sid, floor, area, stype, confirm_del)
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         # 13 数据统计
         elif st.session_state.selected_func == "13 - 数据统计":
             system.statistics()
             if st.button("返回菜单", key="stat_back"):
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         # 14 保存数据
         elif st.session_state.selected_func == "14 - 保存数据":
             if st.button("确认保存所有数据"):
                 system._save_all()
                 st.session_state.func_executed = True
-                st.experimental_rerun()
+                st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
 
